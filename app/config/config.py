@@ -4,7 +4,7 @@
 
 import datetime
 import json
-from typing import Any, Dict, List, Type, get_args, get_origin
+from typing import Any, Dict, List, Type, Union, get_args, get_origin
 
 from pydantic import Field, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
@@ -51,7 +51,8 @@ class Settings(BaseSettings):
         return v
 
     # API相关配置
-    API_KEYS: List[str] = []
+    API_KEYS: List[Union[str, Dict[str, Any]]] = []
+    BASE_PROXY_URL: str = ""  # 代理服务器URL模板 (如: http://user:pass@host:{port})
     ALLOWED_TOKENS: List[str] = []
     BASE_URL: str = f"https://generativelanguage.googleapis.com/{API_VERSION}"
     AUTH_TOKEN: str = ""
