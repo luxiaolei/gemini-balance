@@ -18,13 +18,13 @@ class ApiClient(ABC):
 
     @abstractmethod
     async def generate_content(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         pass
 
     @abstractmethod
     async def stream_generate_content(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         pass
 
@@ -54,16 +54,26 @@ class GeminiApiClient(ApiClient):
             logger.info(f"Using custom headers: {settings.CUSTOM_HEADERS}")
         return headers
 
-    async def get_models(self, api_key: str) -> Optional[Dict[str, Any]]:
+    def _get_proxy(self, api_key: str, proxy_url: Optional[str] = None) -> Optional[str]:
+        """Get proxy URL with priority: per-key proxy > global proxy > None"""
+        # Use per-key proxy first
+        if proxy_url:
+            return proxy_url
+
+        # Fallback to global proxy configuration
+        if settings.PROXIES:
+            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
+                return settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
+            else:
+                return random.choice(settings.PROXIES)
+        return None
+
+    async def get_models(self, api_key: str, proxy_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """获取可用的 Gemini 模型列表"""
         timeout = httpx.Timeout(timeout=5)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
             logger.info(f"Using proxy for getting models: {proxy_to_use}")
 
         headers = self._prepare_headers()
@@ -82,18 +92,14 @@ class GeminiApiClient(ApiClient):
                 return None
 
     async def generate_content(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         model = self._get_real_model(model)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for generate content: {proxy_to_use}")
 
         headers = self._prepare_headers()
 
@@ -116,18 +122,14 @@ class GeminiApiClient(ApiClient):
             return response_data
 
     async def stream_generate_content(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         model = self._get_real_model(model)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for stream generate: {proxy_to_use}")
 
         headers = self._prepare_headers()
         async with httpx.AsyncClient(timeout=timeout, proxy=proxy_to_use) as client:
@@ -143,17 +145,13 @@ class GeminiApiClient(ApiClient):
                     yield line
 
     async def count_tokens(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         model = self._get_real_model(model)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
             logger.info(f"Using proxy for counting tokens: {proxy_to_use}")
 
         headers = self._prepare_headers()
@@ -166,18 +164,14 @@ class GeminiApiClient(ApiClient):
             return response.json()
 
     async def embed_content(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """单一嵌入内容生成"""
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         model = self._get_real_model(model)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
             logger.info(f"Using proxy for embedding: {proxy_to_use}")
 
         headers = self._prepare_headers()
@@ -193,18 +187,14 @@ class GeminiApiClient(ApiClient):
             return response.json()
 
     async def batch_embed_contents(
-        self, payload: Dict[str, Any], model: str, api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """批量嵌入内容生成"""
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         model = self._get_real_model(model)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
             logger.info(f"Using proxy for batch embedding: {proxy_to_use}")
 
         headers = self._prepare_headers()
@@ -227,6 +217,20 @@ class OpenaiApiClient(ApiClient):
         self.base_url = base_url
         self.timeout = timeout
 
+    def _get_proxy(self, api_key: str, proxy_url: Optional[str] = None) -> Optional[str]:
+        """Get proxy URL with priority: per-key proxy > global proxy > None"""
+        # Use per-key proxy first
+        if proxy_url:
+            return proxy_url
+
+        # Fallback to global proxy configuration
+        if settings.PROXIES:
+            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
+                return settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
+            else:
+                return random.choice(settings.PROXIES)
+        return None
+
     def _prepare_headers(self, api_key: str) -> Dict[str, str]:
         headers = {"Authorization": f"Bearer {api_key}"}
         if settings.CUSTOM_HEADERS:
@@ -234,15 +238,11 @@ class OpenaiApiClient(ApiClient):
             logger.info(f"Using custom headers: {settings.CUSTOM_HEADERS}")
         return headers
 
-    async def get_models(self, api_key: str) -> Dict[str, Any]:
+    async def get_models(self, api_key: str, proxy_url: Optional[str] = None) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
             logger.info(f"Using proxy for getting models: {proxy_to_use}")
 
         headers = self._prepare_headers(api_key)
@@ -255,19 +255,15 @@ class OpenaiApiClient(ApiClient):
             return response.json()
 
     async def generate_content(
-        self, payload: Dict[str, Any], api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
         logger.info(
             f"settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY: {settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY}"
         )
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for generate content: {proxy_to_use}")
 
         headers = self._prepare_headers(api_key)
         async with httpx.AsyncClient(timeout=timeout, proxy=proxy_to_use) as client:
@@ -279,16 +275,12 @@ class OpenaiApiClient(ApiClient):
             return response.json()
 
     async def stream_generate_content(
-        self, payload: Dict[str, Any], api_key: str
+        self, payload: Dict[str, Any], model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for stream generate: {proxy_to_use}")
 
         headers = self._prepare_headers(api_key)
         async with httpx.AsyncClient(timeout=timeout, proxy=proxy_to_use) as client:
@@ -304,17 +296,13 @@ class OpenaiApiClient(ApiClient):
                     yield line
 
     async def create_embeddings(
-        self, input: str, model: str, api_key: str
+        self, input: str, model: str, api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for embeddings: {proxy_to_use}")
 
         headers = self._prepare_headers(api_key)
         async with httpx.AsyncClient(timeout=timeout, proxy=proxy_to_use) as client:
@@ -330,17 +318,13 @@ class OpenaiApiClient(ApiClient):
             return response.json()
 
     async def generate_images(
-        self, payload: Dict[str, Any], api_key: str
+        self, payload: Dict[str, Any], api_key: str, proxy_url: Optional[str] = None
     ) -> Dict[str, Any]:
         timeout = httpx.Timeout(self.timeout, read=self.timeout)
 
-        proxy_to_use = None
-        if settings.PROXIES:
-            if settings.PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY:
-                proxy_to_use = settings.PROXIES[hash(api_key) % len(settings.PROXIES)]
-            else:
-                proxy_to_use = random.choice(settings.PROXIES)
-            logger.info(f"Using proxy for getting models: {proxy_to_use}")
+        proxy_to_use = self._get_proxy(api_key, proxy_url)
+        if proxy_to_use:
+            logger.info(f"Using proxy for image generation: {proxy_to_use}")
 
         headers = self._prepare_headers(api_key)
         async with httpx.AsyncClient(timeout=timeout, proxy=proxy_to_use) as client:
