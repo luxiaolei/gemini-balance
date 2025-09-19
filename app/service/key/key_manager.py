@@ -1,7 +1,7 @@
 import asyncio
 import random
 from itertools import cycle
-from typing import Dict, Union
+from typing import Dict, Optional, Tuple, Union
 
 from app.config.config import settings
 from app.log.logger import get_key_manager_logger
@@ -12,20 +12,60 @@ logger = get_key_manager_logger()
 
 class KeyManager:
     def __init__(self, api_keys: list, vertex_api_keys: list):
-        self.api_keys = api_keys
+        # Parse API keys and extract proxy port information
+        self.api_keys_info = self._parse_api_keys(api_keys)
+        self.api_keys = [key_info['key'] for key_info in self.api_keys_info]
+
         self.vertex_api_keys = vertex_api_keys
-        self.key_cycle = cycle(api_keys)
+        self.key_cycle = cycle(self.api_keys)
         self.vertex_key_cycle = cycle(vertex_api_keys)
         self.key_cycle_lock = asyncio.Lock()
         self.vertex_key_cycle_lock = asyncio.Lock()
         self.failure_count_lock = asyncio.Lock()
         self.vertex_failure_count_lock = asyncio.Lock()
-        self.key_failure_counts: Dict[str, int] = {key: 0 for key in api_keys}
+        self.key_failure_counts: Dict[str, int] = {key: 0 for key in self.api_keys}
         self.vertex_key_failure_counts: Dict[str, int] = {
             key: 0 for key in vertex_api_keys
         }
         self.MAX_FAILURES = settings.MAX_FAILURES
         self.paid_key = settings.PAID_KEY
+
+    def _parse_api_keys(self, api_keys: list) -> list:
+        """Parse API keys from mixed format (str or dict) to unified dict format"""
+        parsed_keys = []
+        for key_item in api_keys:
+            if isinstance(key_item, str):
+                # Simple string format
+                parsed_keys.append({
+                    'key': key_item,
+                    'proxy_port': None
+                })
+            elif isinstance(key_item, dict):
+                # Dict format with proxy port
+                parsed_keys.append({
+                    'key': key_item['key'],
+                    'proxy_port': key_item.get('proxy_port')
+                })
+            else:
+                logger.warning(f"Unsupported API key format: {type(key_item)}")
+        return parsed_keys
+
+    def get_key_info(self, api_key: str) -> Optional[Dict]:
+        """Get key information including proxy port"""
+        for key_info in self.api_keys_info:
+            if key_info['key'] == api_key:
+                return key_info
+        return None
+
+    def build_proxy_url(self, proxy_port: Optional[int]) -> Optional[str]:
+        """Build proxy URL from port using BASE_PROXY_URL template"""
+        if not proxy_port or not settings.BASE_PROXY_URL:
+            return None
+        try:
+            return settings.BASE_PROXY_URL.format(port=proxy_port)
+        except Exception as e:
+            logger.error(f"Failed to build proxy URL with port {proxy_port}: {e}")
+            return None
 
     async def get_paid_key(self) -> str:
         return self.paid_key
