@@ -359,7 +359,13 @@ class GeminiChatService:
         response = None
 
         try:
-            response = await self.api_client.generate_content(payload, model, api_key)
+            # Get proxy information for this API key
+            key_info = self.key_manager.get_key_info(api_key)
+            proxy_url = None
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
+            response = await self.api_client.generate_content(payload, model, api_key, proxy_url)
             is_success = True
             status_code = 200
             return self.response_handler.handle_response(response, model, stream=False)
@@ -406,7 +412,13 @@ class GeminiChatService:
         response = None
 
         try:
-            response = await self.api_client.count_tokens(payload, model, api_key)
+            # Get proxy information for this API key
+            key_info = self.key_manager.get_key_info(api_key)
+            proxy_url = None
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
+            response = await self.api_client.count_tokens(payload, model, api_key, proxy_url)
             is_success = True
             status_code = 200
             return response
@@ -469,8 +481,14 @@ class GeminiChatService:
             current_attempt_key = api_key
             final_api_key = current_attempt_key
             try:
+                # Get proxy information for this API key
+                key_info = self.key_manager.get_key_info(current_attempt_key)
+                proxy_url = None
+                if key_info and key_info.get('proxy_port'):
+                    proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
                 async for line in self.api_client.stream_generate_content(
-                    payload, model, current_attempt_key
+                    payload, model, current_attempt_key, proxy_url
                 ):
                     # print(line)
                     if line.startswith("data:"):

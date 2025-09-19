@@ -24,7 +24,13 @@ class OpenAICompatiableService:
         self.api_client = OpenaiApiClient(base_url, settings.TIME_OUT)
 
     async def get_models(self, api_key: str) -> Dict[str, Any]:
-        return await self.api_client.get_models(api_key)
+        # Get proxy information for this API key
+        proxy_url = None
+        if self.key_manager:
+            key_info = self.key_manager.get_key_info(api_key)
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+        return await self.api_client.get_models(api_key, proxy_url)
 
     async def create_chat_completion(
         self,
@@ -51,7 +57,13 @@ class OpenAICompatiableService:
         # 移除值为null的
         request_dict = {k: v for k, v in request_dict.items() if v is not None}
         api_key = settings.PAID_KEY
-        return await self.api_client.generate_images(request_dict, api_key)
+        # Get proxy information for this API key
+        proxy_url = None
+        if self.key_manager:
+            key_info = self.key_manager.get_key_info(api_key)
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+        return await self.api_client.generate_images(request_dict, api_key, proxy_url)
 
     async def create_embeddings(
         self,
@@ -60,7 +72,13 @@ class OpenAICompatiableService:
         api_key: str,
     ) -> Dict[str, Any]:
         """创建嵌入"""
-        return await self.api_client.create_embeddings(input_text, model, api_key)
+        # Get proxy information for this API key
+        proxy_url = None
+        if self.key_manager:
+            key_info = self.key_manager.get_key_info(api_key)
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+        return await self.api_client.create_embeddings(input_text, model, api_key, proxy_url)
 
     async def _handle_normal_completion(
         self, model: str, request: dict, api_key: str
@@ -72,7 +90,14 @@ class OpenAICompatiableService:
         status_code = None
         response = None
         try:
-            response = await self.api_client.generate_content(request, api_key)
+            # Get proxy information for this API key
+            proxy_url = None
+            if self.key_manager:
+                key_info = self.key_manager.get_key_info(api_key)
+                if key_info and key_info.get('proxy_port'):
+                    proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
+            response = await self.api_client.generate_content(request, "dummy", api_key, proxy_url)
             is_success = True
             status_code = 200
             return response
@@ -119,8 +144,15 @@ class OpenAICompatiableService:
             current_attempt_key = api_key
             final_api_key = current_attempt_key
             try:
+                # Get proxy information for this API key
+                proxy_url = None
+                if self.key_manager:
+                    key_info = self.key_manager.get_key_info(current_attempt_key)
+                    if key_info and key_info.get('proxy_port'):
+                        proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
                 async for line in self.api_client.stream_generate_content(
-                    payload, current_attempt_key
+                    payload, "dummy", current_attempt_key, proxy_url
                 ):
                     if line.startswith("data:"):
                         # print(line)

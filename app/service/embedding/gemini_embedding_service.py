@@ -62,7 +62,13 @@ class GeminiEmbeddingService:
         response = None
 
         try:
-            response = await self.api_client.embed_content(payload, model, api_key)
+            # Get proxy information for this API key
+            key_info = self.key_manager.get_key_info(api_key)
+            proxy_url = None
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
+            response = await self.api_client.embed_content(payload, model, api_key, proxy_url)
             is_success = True
             status_code = 200
             return response
@@ -106,8 +112,14 @@ class GeminiEmbeddingService:
         response = None
 
         try:
+            # Get proxy information for this API key
+            key_info = self.key_manager.get_key_info(api_key)
+            proxy_url = None
+            if key_info and key_info.get('proxy_port'):
+                proxy_url = self.key_manager.build_proxy_url(key_info['proxy_port'])
+
             response = await self.api_client.batch_embed_contents(
-                payload, model, api_key
+                payload, model, api_key, proxy_url
             )
             is_success = True
             status_code = 200
