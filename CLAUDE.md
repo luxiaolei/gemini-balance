@@ -13,7 +13,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Start with custom port (as seen in main.py)
-python app/main.py  # Runs on port 8001
+python app/main.py  # Runs on port 8004
 ```
 
 ### Docker Development
@@ -119,3 +119,26 @@ Enhanced API key configuration supporting individual proxy assignment:
 - **Simple format**: `["AIzaSy..."]` - No proxy, uses global proxy settings or direct connection
 - **Advanced format**: `[{"key":"AIzaSy...","proxy_port":10001}]` - Per-key proxy configuration
 - **BASE_PROXY_URL**: Template like `http://user:pass@proxy.com:{port}` where {port} is replaced
+- **Mixed format**: Both string and object API keys can coexist in the same configuration
+- **Fallback chain**: Per-key proxy → Global proxy → Direct connection
+
+### API Key Management & Health
+- **Automatic Retry Logic**: 3 retries with automatic key switching on failure
+- **Failure Tracking**: Each key has independent failure counters (max 10 failures)
+- **Health Monitoring**: Automatic disabling of keys that exceed failure threshold
+- **Key Validation**: Smart skipping of disabled keys during rotation
+- **Manual Cleanup**: Scripts provided for removing suspended/invalid keys
+
+### Maintenance Scripts
+- `scripts/test_api_keys.py`: Test all API keys and identify suspended ones
+- `scripts/auto_clean_keys.py`: Automatically remove suspended keys from database
+- `fix_suspended_keys.py`: Direct database cleanup script for problematic keys
+- `update_valid_keys.py`: Conservative key filtering based on test results
+
+### Service Configuration
+Current configuration for gemini2openai compatibility:
+- **Port**: 8004 (matches gemini2openai default)
+- **API Token**: `911Ljsam@` (compatible with existing projects)
+- **Base URL**: `https://generativelanguage.googleapis.com/v1beta`
+- **Database**: SQLite-based for easy deployment
+- **Proxy Template**: `http://sp1w0pmdkq:SF6so4rdDj3vSq=r3l@dc.decodo.com:{port}`
