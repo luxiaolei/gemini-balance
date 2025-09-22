@@ -120,7 +120,8 @@ def main():
 
     # Format API keys
     api_keys_str = format_api_keys(active_keys)
-    base_proxy_url = "http://sp1w0pmdkq:SF6so4rdDj3vSq=r3l@dc.decodo.com:{port}"
+    # 从环境变量读取代理配置，如果未设置则使用默认值
+    base_proxy_url = os.getenv('BASE_PROXY_URL', 'http://username:password@proxy.example.com:{port}')
 
     # Update .env file
     try:

@@ -131,14 +131,11 @@ Enhanced API key configuration supporting individual proxy assignment:
 
 ### Maintenance Scripts
 - `scripts/test_api_keys.py`: Test all API keys and identify suspended ones
-- `scripts/auto_clean_keys.py`: Automatically remove suspended keys from database
-- `fix_suspended_keys.py`: Direct database cleanup script for problematic keys
-- `update_valid_keys.py`: Conservative key filtering based on test results
 
 ### Service Configuration
 Current configuration for gemini2openai compatibility:
 - **Port**: 8004 (matches gemini2openai default)
-- **API Token**: `911Ljsam@` (compatible with existing projects)
+- **API Token**: `your-auth-token` (set your own authentication token)
 - **Base URL**: `https://generativelanguage.googleapis.com/v1beta`
 - **Database**: SQLite-based for easy deployment
-- **Proxy Template**: `http://sp1w0pmdkq:SF6so4rdDj3vSq=r3l@dc.decodo.com:{port}`
+- **Proxy Template**: `http://username:password@proxy.example.com:{port}` (configure your proxy credentials)

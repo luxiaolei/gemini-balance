@@ -24,7 +24,8 @@ TEST_MODEL = "gemini-2.0-flash"
 class APIKeyTester:
     def __init__(self, db_path: str = "data/gemini_balance.db"):
         self.db_path = db_path
-        self.proxy_base_url = "http://sp1w0pmdkq:SF6so4rdDj3vSq=r3l@dc.decodo.com"
+        # 从环境变量读取代理配置，如果未设置则使用默认值
+        self.proxy_base_url = os.getenv('BASE_PROXY_URL', 'http://localhost:8080')
         self.valid_keys = []
         self.invalid_keys = []
         self.suspended_keys = []
