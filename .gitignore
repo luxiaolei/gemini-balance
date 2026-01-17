@@ -259,3 +259,8 @@ $RECYCLE.BIN/
 
 tests/
 default_db
+
+# Local artifacts / reports (may contain secrets)
+gemini_balance.db
+data/gemini_balance.db
+data/api_key_check_report.json
