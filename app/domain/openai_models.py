@@ -22,7 +22,7 @@ class ChatRequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     input: Union[str, List[str]]
-    model: str = "text-embedding-004"
+    model: str = "gemini-embedding-001"
     encoding_format: Optional[str] = "float"
 
 

@@ -70,7 +70,7 @@ app/
     ![添加密钥](files/image5.png)
 *   **失败重试与自动禁用**: 自动处理 API 请求失败，进行重试 (`MAX_RETRIES`)，并在 Key 失效次数过多时自动禁用 (`MAX_FAILURES`)，定时检查恢复 (`CHECK_INTERVAL_HOURS`)。
 *   **全面的 API 兼容**:
-    *   **Embeddings 接口**: 完美适配 OpenAI 格式的 `embeddings` 接口。
+    *   **Embeddings 接口**: 完美适配 OpenAI 格式的 `embeddings` 接口。当前 Gemini 文本嵌入模型为 `gemini-embedding-001`。
     *   **画图接口**: 将 `imagen-3.0-generate-002` 模型接口改造为 OpenAI 画图接口格式。
 *   **模型列表自动维护**: 自动获取并同步 Gemini 和 OpenAI 的最新模型列表，兼容 New API。
 *   **代理支持**: 支持配置 HTTP/SOCKS5 代理 (`PROXIES`)，方便在特殊网络环境下使用。
@@ -152,7 +152,7 @@ app/
 
 *   `GET /hf/v1/models`: 列出模型。
 *   `POST /hf/v1/chat/completions`: 聊天补全。
-*   `POST /hf/v1/embeddings`: 创建文本嵌入。
+*   `POST /hf/v1/embeddings`: 创建文本嵌入（建议使用 `gemini-embedding-001`；旧别名 `text-embedding-004` 会自动映射）。
 *   `POST /hf/v1/images/generations`: 生成图像。
 
 #### 标准 OpenAI 格式
@@ -161,7 +161,7 @@ app/
 
 *   `GET /openai/v1/models`: 列出模型。
 *   `POST /openai/v1/chat/completions`: 聊天补全 (推荐，速度更快，防截断)。
-*   `POST /openai/v1/embeddings`: 创建文本嵌入。
+*   `POST /openai/v1/embeddings`: 创建文本嵌入（建议使用 `gemini-embedding-001`；旧别名 `text-embedding-004` 会自动映射）。
 *   `POST /openai/v1/images/generations`: 生成图像。
 
 ---
