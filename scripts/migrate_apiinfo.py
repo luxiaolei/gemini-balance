@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Migration script to extract active API keys and proxy ports from gemini2openai repository
+Migration script to extract active API keys and proxy ports from the local apiinfo CSV
 """
 import csv
 import json
@@ -96,15 +96,18 @@ def main():
     # Paths
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    gemini2openai_path = Path("/home/trader/repos/gemini2openai/apiinfo.csv")
+    default_csv_path = project_root / "data" / "apiinfo.csv"
+    legacy_csv_path = Path("/home/trader/repos/gemini2openai/apiinfo.csv")
+    env_csv_path = os.getenv("APIINFO_CSV_PATH")
+    apiinfo_csv_path = Path(env_csv_path) if env_csv_path else (default_csv_path if default_csv_path.exists() else legacy_csv_path)
     env_path = project_root / ".env"
 
     print("Starting API keys migration...")
-    print(f"Reading from: {gemini2openai_path}")
+    print(f"Reading from: {apiinfo_csv_path}")
     print(f"Updating: {env_path}")
 
     # Read active keys from CSV
-    active_keys = read_apiinfo_csv(str(gemini2openai_path))
+    active_keys = read_apiinfo_csv(str(apiinfo_csv_path))
 
     if not active_keys:
         print("No active API keys found!")
