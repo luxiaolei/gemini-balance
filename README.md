@@ -72,7 +72,7 @@ app/
     ![Add Key](files/image5.png)
 *   **Failure Retry & Auto-Disable**: Automatically retries failed API requests (`MAX_RETRIES`) and disables keys after excessive failures (`MAX_FAILURES`).
 *   **Comprehensive API Compatibility**:
-    *   **Embeddings API**: Fully compatible with the OpenAI `embeddings` API format.
+    *   **Embeddings API**: Fully compatible with the OpenAI `embeddings` API format. The current Gemini text embedding model is `gemini-embedding-001`.
     *   **Image Generation API**: Adapts the `imagen-3.0-generate-002` model to the OpenAI image generation API format.
 *   **Automatic Model List Maintenance**: Automatically fetches and syncs the latest model lists from Gemini and OpenAI.
 *   **Proxy Support**: Supports HTTP/SOCKS5 proxies (`PROXIES`).
@@ -151,7 +151,7 @@ If you want to use advanced features, like fake streaming, please use this endpo
 
 *   `GET /hf/v1/models`: List models.
 *   `POST /hf/v1/chat/completions`: Chat completion.
-*   `POST /hf/v1/embeddings`: Create text embeddings.
+*   `POST /hf/v1/embeddings`: Create text embeddings (use `gemini-embedding-001`; legacy `text-embedding-004` is mapped automatically).
 *   `POST /hf/v1/images/generations`: Generate images.
 
 #### Standard OpenAI
@@ -160,7 +160,7 @@ This endpoint is directly forwarded to official OpenAI Compatible API format end
 
 *   `GET /openai/v1/models`: List models.
 *   `POST /openai/v1/chat/completions`: Chat completion (Recommended).
-*   `POST /openai/v1/embeddings`: Create text embeddings.
+*   `POST /openai/v1/embeddings`: Create text embeddings (use `gemini-embedding-001`; legacy `text-embedding-004` is mapped automatically).
 *   `POST /openai/v1/images/generations`: Generate images.
 
 ---

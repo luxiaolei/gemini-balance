@@ -42,6 +42,11 @@ class EmbeddingService:
             }
 
         try:
+            # Google Gemini embeddings in the Generative Language API use model names like
+            # gemini-embedding-001. For backward compatibility, map the old OpenAI-style
+            # default alias to the current Gemini embedding model.
+            if model == "text-embedding-004":
+                model = "gemini-embedding-001"
             client = openai.OpenAI(api_key=api_key, base_url=settings.BASE_URL)
             response = client.embeddings.create(input=input_text, model=model)
             is_success = True
