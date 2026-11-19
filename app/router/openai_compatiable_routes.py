@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.config.config import settings
@@ -12,6 +12,7 @@ from app.handler.error_handler import handle_route_errors
 from app.handler.retry_handler import RetryHandler
 from app.log.logger import get_openai_compatible_logger
 from app.service.key.key_manager import KeyManager, get_key_manager_instance
+from app.service.model.model_service import ModelService
 from app.service.openai_compatiable.openai_compatiable_service import (
     OpenAICompatiableService,
 )
@@ -21,6 +22,7 @@ router = APIRouter()
 logger = get_openai_compatible_logger()
 
 security_service = SecurityService()
+model_service = ModelService()
 
 
 async def get_key_manager():
@@ -76,6 +78,11 @@ async def chat_completion(
         logger.info(f"Using allowed token: {allowed_token}")
         logger.info(f"Using API key: {redact_key_for_logging(current_api_key)}")
 
+        if not await model_service.check_model_support(request.model):
+            raise HTTPException(
+                status_code=400, detail=f"Model {request.model} is not supported"
+            )
+
         raw_response = None
         if is_image_chat:
             raw_response = await openai_service.create_image_chat_completion(
@@ -124,6 +131,10 @@ async def generate_image(
         logger.info(f"Handling image generation request for prompt: {request.prompt}")
         logger.info(f"Using allowed token: {allowed_token}")
         request.model = settings.CREATE_IMAGE_MODEL
+        if not await model_service.check_model_support(f"{request.model}-chat"):
+            raise HTTPException(
+                status_code=400, detail=f"Model {request.model} is not supported"
+            )
         return await openai_service.generate_images(request)
 
 
@@ -141,6 +152,10 @@ async def embedding(
         api_key = await key_manager.get_next_working_key()
         logger.info(f"Using allowed token: {allowed_token}")
         logger.info(f"Using API key: {redact_key_for_logging(api_key)}")
+        if not await model_service.check_model_support(request.model):
+            raise HTTPException(
+                status_code=400, detail=f"Model {request.model} is not supported"
+            )
         return await openai_service.create_embeddings(
             input_text=request.input, model=request.model, api_key=api_key
         )

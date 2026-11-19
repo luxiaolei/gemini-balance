@@ -1,0 +1,19 @@
+services:
+  gemini-balance:
+    depends_on: !reset {}
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    environment:
+      http_proxy: http://host.docker.internal:8888
+      https_proxy: http://host.docker.internal:8888
+      HTTP_PROXY: http://host.docker.internal:8888
+      HTTPS_PROXY: http://host.docker.internal:8888
+      no_proxy: localhost,127.0.0.1
+      NO_PROXY: localhost,127.0.0.1
+    volumes:
+      - gateway_data:/app/data
+
+volumes:
+  gateway_data:
+    external: true
+    name: gemini-balance-gateway-data

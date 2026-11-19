@@ -174,6 +174,18 @@ def _get_safety_settings(model: str) -> List[Dict[str, str]]:
     return settings.SAFETY_SETTINGS
 
 
+def _thinking_budget(reasoning_effort: Optional[str]) -> Optional[int]:
+    return {
+        "none": 0,
+        "minimal": 128,
+        "low": 512,
+        "medium": 1024,
+        "high": 2048,
+        "xhigh": 4096,
+        "max": 8192,
+    }.get(reasoning_effort)
+
+
 def _validate_and_set_max_tokens(
     payload: Dict[str, Any], max_tokens: Optional[int], logger_instance
 ) -> None:
@@ -219,7 +231,14 @@ def _build_payload(
     if request.model.endswith("-image") or request.model.endswith("-image-generation"):
         payload["generationConfig"]["responseModalities"] = ["Text", "Image"]
 
-    if request.model.endswith("-non-thinking"):
+    if request.reasoning_effort is not None:
+        budget = _thinking_budget(request.reasoning_effort)
+        if budget is not None:
+            payload["generationConfig"]["thinkingConfig"] = {
+                "thinkingBudget": budget,
+                "includeThoughts": settings.SHOW_THINKING_PROCESS,
+            }
+    elif request.model.endswith("-non-thinking"):
         if "gemini-2.5-pro" in request.model:
             payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 128}
         else:

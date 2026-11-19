@@ -2,7 +2,16 @@ volumes:
   mysql_data:
 services:
   gemini-balance:
-    image: ghcr.io/snailyp/gemini-balance:latest
+    build:
+      context: .
+      args:
+        http_proxy: ""
+        https_proxy: ""
+        HTTP_PROXY: ""
+        HTTPS_PROXY: ""
+        no_proxy: ""
+        NO_PROXY: ""
+    image: gemini-balance:local
     container_name: gemini-balance
     restart: unless-stopped
     ports:

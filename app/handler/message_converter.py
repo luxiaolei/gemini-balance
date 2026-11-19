@@ -328,7 +328,13 @@ class OpenAIMessageConverter(MessageConverter):
                         if "arguments" in function_call:
                             del function_call["arguments"]
 
-                    parts.append({"functionCall": function_call})
+                    thought_signature = tool_call.get("thought_signature") or tool_call.get(
+                        "thoughtSignature"
+                    )
+                    part = {"functionCall": function_call}
+                    if thought_signature:
+                        part["thoughtSignature"] = thought_signature
+                    parts.append(part)
 
             if role not in SUPPORTED_ROLES:
                 if role == "tool":

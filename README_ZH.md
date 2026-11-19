@@ -96,6 +96,20 @@ app/
     ```
     该命令会以后台模式启动 `gemini-balance` 应用和 `mysql` 数据库。
 
+#### 本机网关部署（SQLite，2026-11-18 验证）
+
+已有本机实例使用 `.env` 中的 `DATABASE_TYPE=sqlite`，通过以下命令保留网关覆盖配置（需要支持 `!reset` / `!override` 的 Docker Compose；本机已验证 v5）：
+
+```bash
+docker compose -f docker-compose.yml -f compose.gateway.yaml up -d --build --no-deps gemini-balance
+```
+
+覆盖配置只将 API 发布到 `127.0.0.1:8000`，移除应用对 MySQL 的依赖，不启动或删除原有 MySQL 容器及其数据。SQLite 使用独立外部卷 `gemini-balance-gateway-data`，挂载到 `/app/data`。该卷已从停止后的原运行容器备份初始化；首次迁移其他实例时，也必须先停止应用并备份实际使用的 `/app/data`，再初始化外部卷。不要用仓库中可能较旧的 `data/` 覆盖运行数据，也不要删除该卷。
+
+代理指向本机 `http://host.docker.internal:8888`，需要主机代理正在监听且可由 Docker 访问。覆盖文件同时设置大小写 `HTTP_PROXY` / `HTTPS_PROXY` 与 `http_proxy` / `https_proxy`，因为镜像中的空小写变量会遮蔽大写配置；大小写 `NO_PROXY` 均排除 `localhost,127.0.0.1`。这是 Docker Desktop 本机配置，不应直接用于远程服务器。
+
+数据库中保存的配置优先于 `.env`（`DATABASE_TYPE` 除外）；使用现有配置页面/API 修改并持久化模型白名单。当前保留 `FREE_TIER_ONLY=true`，仅发布已通过实际文本和 SSE 测试的 `gemini-3-flash-preview`、`gemini-3.5-flash-lite`，原密钥池完整保留。`gemini-3.8-flash` 因上游繁忙/超时暂不发布；`gemini-4-hydrogen` 因轮询密钥权限拒绝或上游暂不可用暂不发布；`gemini-4-argon`、`gemini-4-carbon` 的当前测试额度为零，未加入白名单。模型目录可见不代表具备可用额度，恢复发布前应重新验证文本与正常结束的流式请求。
+
 ### 方式二：使用 Docker 命令
 
 1.  **拉取镜像**:

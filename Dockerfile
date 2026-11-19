@@ -6,6 +6,13 @@ WORKDIR /app
 COPY ./requirements.txt /app
 COPY ./VERSION /app
 
+ENV http_proxy=
+ENV https_proxy=
+ENV HTTP_PROXY=
+ENV HTTPS_PROXY=
+ENV no_proxy=
+ENV NO_PROXY=
+
 RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app /app/app
 ENV API_KEYS='["your_api_key_1"]'

@@ -61,9 +61,13 @@ async def list_models(
     async with handle_route_errors(logger, operation_name):
         logger.info("Handling models list request")
         api_key = await key_manager.get_random_valid_key()
-        logger.info(f"Using allowed token: {allowed_token}")
         logger.info(f"Using API key: {redact_key_for_logging(api_key)}")
-        return await model_service.get_gemini_openai_models(api_key)
+        models = await model_service.get_gemini_openai_models(api_key)
+        if models is None:
+            raise HTTPException(
+                status_code=502, detail="Failed to fetch upstream model list"
+            )
+        return models
 
 
 @router.post("/v1/chat/completions")
@@ -86,7 +90,6 @@ async def chat_completion(
     async with handle_route_errors(logger, operation_name):
         logger.info(f"Handling chat completion request for model: {request.model}")
         logger.debug(f"Request: \n{request.model_dump_json(indent=2)}")
-        logger.info(f"Using allowed token: {allowed_token}")
         logger.info(f"Using API key: {redact_key_for_logging(current_api_key)}")
 
         if not await model_service.check_model_support(request.model):

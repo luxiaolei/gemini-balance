@@ -356,15 +356,17 @@ def _extract_tool_calls(
             id = f"call_{''.join(random.sample(letters, 32))}"
             name = item.get("name", "")
             arguments = json.dumps(item.get("args", None) or {})
+            thought_signature = part.get("thoughtSignature") or part.get("thought_signature")
 
-            tool_calls.append(
-                {
-                    "index": i,
-                    "id": id,
-                    "type": "function",
-                    "function": {"name": name, "arguments": arguments},
-                }
-            )
+            tool_call = {
+                "index": i,
+                "id": id,
+                "type": "function",
+                "function": {"name": name, "arguments": arguments},
+            }
+            if thought_signature:
+                tool_call["thought_signature"] = thought_signature
+            tool_calls.append(tool_call)
 
     return tool_calls
 

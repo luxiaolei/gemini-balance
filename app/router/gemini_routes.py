@@ -85,7 +85,14 @@ async def list_models(
             for x in models_json.get("models", [])
         }
 
+        def is_allowed_base_model(base_name: str) -> bool:
+            if settings.FREE_TIER_ONLY and settings.FREE_TIER_MODELS:
+                return base_name in settings.FREE_TIER_MODELS
+            return True
+
         def add_derived_model(base_name, suffix, display_suffix):
+            if not is_allowed_base_model(base_name):
+                return
             model = model_mapping.get(base_name)
             if not model:
                 logger.warning(

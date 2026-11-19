@@ -25,6 +25,14 @@ from app.service.model.model_service import ModelService
 logger = get_config_routes_logger()
 
 
+def _get_api_key_value(key_item: Any) -> str:
+    if isinstance(key_item, str):
+        return key_item
+    if isinstance(key_item, dict):
+        return key_item.get("key", "")
+    return ""
+
+
 class ConfigService:
     """配置服务类，用于管理应用程序配置"""
 
@@ -131,7 +139,9 @@ class ConfigService:
 
         original_keys_count = len(settings.API_KEYS)
         # 创建一个不包含待删除密钥的新列表
-        updated_api_keys = [k for k in settings.API_KEYS if k != key_to_delete]
+        updated_api_keys = [
+            k for k in settings.API_KEYS if _get_api_key_value(k) != key_to_delete
+        ]
 
         if len(updated_api_keys) < original_keys_count:
             # 密钥已找到并从列表中移除
@@ -158,11 +168,15 @@ class ConfigService:
         keys_actually_removed: List[str] = []
 
         for key_to_del in keys_to_delete:
-            if key_to_del in current_api_keys:
-                current_api_keys.remove(key_to_del)
-                keys_actually_removed.append(key_to_del)
-                deleted_count += 1
-            else:
+            removed = False
+            for existing_key in list(current_api_keys):
+                if _get_api_key_value(existing_key) == key_to_del:
+                    current_api_keys.remove(existing_key)
+                    keys_actually_removed.append(key_to_del)
+                    deleted_count += 1
+                    removed = True
+                    break
+            if not removed:
                 not_found_keys.append(key_to_del)
 
         if deleted_count > 0:

@@ -42,8 +42,12 @@ class KeyManager:
                 })
             elif isinstance(key_item, dict):
                 # Dict format with proxy port
+                api_key = key_item.get('key')
+                if not api_key:
+                    logger.warning("API key entry missing 'key' field; skipping.")
+                    continue
                 parsed_keys.append({
-                    'key': key_item['key'],
+                    'key': api_key,
                     'proxy_port': key_item.get('proxy_port')
                 })
             else:

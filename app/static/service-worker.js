@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gbalance-cache-v1';
+const CACHE_NAME = 'gbalance-cache-v2';
 const urlsToCache = [
   '/',
   '/static/manifest.json',
@@ -16,6 +16,12 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.open(CACHE_NAME).then(cache => {
       // 1. 尝试从缓存获取

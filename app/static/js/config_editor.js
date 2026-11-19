@@ -982,9 +982,24 @@ function populateForm(config) {
 
   // 4.1. 特殊处理API_KEYS - 使用分页
   if (Array.isArray(config.API_KEYS)) {
-    allApiKeys = config.API_KEYS.filter(key =>
-      typeof key === "string" && key.trim() !== ""
+    // Normalize all keys to objects
+    allApiKeys = config.API_KEYS.map((key) => {
+      if (typeof key === "string") {
+        return { key: key.trim(), email: "", password: "", recovery_email: "" };
+      } else if (typeof key === "object" && key !== null) {
+        return {
+          key: key.key || "",
+          email: key.email || "",
+          password: key.password || "",
+          recovery_email: key.recovery_email || "",
+          ...key, // Preserve other fields
+        };
+      }
+      return null;
+    }).filter(
+      (item) => item && item.key && item.key.trim() !== ""
     );
+
     filteredApiKeys = [...allApiKeys];
     currentApiKeyPage = 1;
     renderApiKeyPage();
@@ -1118,29 +1133,40 @@ function handleBulkAddApiKeys() {
   const bulkText = apiKeyBulkInput.value;
   const extractedKeys = bulkText.match(API_KEY_REGEX) || [];
 
-  // 合并现有密钥和新密钥，去重
-  const combinedKeys = new Set([...allApiKeys, ...extractedKeys]);
-  const uniqueKeys = Array.from(combinedKeys);
+  const existingMap = new Map();
+  allApiKeys.forEach(item => {
+    if (item && item.key) {
+      existingMap.set(item.key, item);
+    }
+  });
 
-  // 更新全局密钥数组
-  allApiKeys = uniqueKeys;
+  extractedKeys.forEach(keyStr => {
+    if (!existingMap.has(keyStr)) {
+      existingMap.set(keyStr, {
+        key: keyStr,
+        email: "",
+        password: "",
+        recovery_email: ""
+      });
+    }
+  });
+
+  allApiKeys = Array.from(existingMap.values());
   
-  // 更新过滤后的数组
   const searchTerm = apiKeySearchInput ? apiKeySearchInput.value.toLowerCase() : "";
   if (!searchTerm) {
     filteredApiKeys = [...allApiKeys];
   } else {
-    filteredApiKeys = allApiKeys.filter(key =>
-      key.toLowerCase().includes(searchTerm)
+    filteredApiKeys = allApiKeys.filter(item =>
+      item.key.toLowerCase().includes(searchTerm)
     );
   }
 
-  // 重新渲染当前页
   renderApiKeyPage();
   updateApiKeyPagination();
 
   closeModal(apiKeyModal);
-  showNotification(`添加/更新了 ${uniqueKeys.length} 个唯一密钥`, "success");
+  showNotification(`添加/更新了 ${existingMap.size} 个唯一密钥`, "success");
 }
 
 /**
@@ -1151,19 +1177,16 @@ function handleApiKeySearch() {
 
   const searchTerm = apiKeySearchInput.value.toLowerCase();
   
-  // 过滤API密钥
   if (!searchTerm) {
     filteredApiKeys = [...allApiKeys];
   } else {
-    filteredApiKeys = allApiKeys.filter(key =>
-      key.toLowerCase().includes(searchTerm)
+    filteredApiKeys = allApiKeys.filter(item =>
+      item.key.toLowerCase().includes(searchTerm)
     );
   }
 
-  // 重置到第一页
   currentApiKeyPage = 1;
   
-  // 重新渲染当前页
   renderApiKeyPage();
   updateApiKeyPagination();
 }
@@ -1294,27 +1317,24 @@ function handleBulkDeleteApiKeys() {
     return;
   }
 
-  // 从allApiKeys数组中删除匹配的密钥
   let deleteCount = 0;
-  allApiKeys = allApiKeys.filter(key => {
-    if (keysToDelete.has(key)) {
+  allApiKeys = allApiKeys.filter(item => {
+    if (keysToDelete.has(item.key)) {
       deleteCount++;
       return false;
     }
     return true;
   });
 
-  // 更新过滤后的数组
   const searchTerm = apiKeySearchInput ? apiKeySearchInput.value.toLowerCase() : "";
   if (!searchTerm) {
     filteredApiKeys = [...allApiKeys];
   } else {
-    filteredApiKeys = allApiKeys.filter(key =>
-      key.toLowerCase().includes(searchTerm)
+    filteredApiKeys = allApiKeys.filter(item =>
+      item.key.toLowerCase().includes(searchTerm)
     );
   }
 
-  // 重新渲染当前页
   renderApiKeyPage();
   updateApiKeyPagination();
 
@@ -1677,6 +1697,30 @@ function createProxyCheckButton() {
  * @param {string} key - The configuration key for the array (e.g., 'API_KEYS').
  */
 function addArrayItem(key) {
+  if (key === "API_KEYS") {
+    const newItem = { key: "", email: "", password: "", recovery_email: "" };
+    allApiKeys.push(newItem);
+    
+    // Clear search to ensure new item is visible
+    if (apiKeySearchInput) apiKeySearchInput.value = "";
+    filteredApiKeys = [...allApiKeys];
+    
+    // Jump to last page
+    currentApiKeyPage = Math.max(1, Math.ceil(filteredApiKeys.length / API_KEYS_PER_PAGE));
+    
+    renderApiKeyPage();
+    updateApiKeyPagination();
+    
+    // Scroll to bottom of container to show new item
+    const container = document.getElementById("API_KEYS_container");
+    if (container) {
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
+    }
+    return;
+  }
+
   const container = document.getElementById(`${key}_container`);
   if (!container) return;
 
@@ -1699,11 +1743,16 @@ function addArrayItemWithValue(key, value) {
   const container = document.getElementById(`${key}_container`);
   if (!container) return null;
 
+  if (key === "API_KEYS") {
+    renderApiKeyItem(value);
+    return null;
+  }
+
   const isThinkingModel = key === "THINKING_MODELS";
   const isAllowedToken = key === "ALLOWED_TOKENS";
   const isVertexApiKey = key === "VERTEX_API_KEYS"; // 新增判断
   const isProxy = key === "PROXIES"; // 新增代理判断
-  const isSensitive = key === "API_KEYS" || isAllowedToken || isVertexApiKey; // 更新敏感判断
+  const isSensitive = isAllowedToken || isVertexApiKey; // 更新敏感判断 (API_KEYS handled separately now)
   const modelId = isThinkingModel ? generateUUID() : null;
 
   const arrayItem = document.createElement("div");
@@ -1937,7 +1986,7 @@ function collectFormData() {
     // 特殊处理API_KEYS - 使用全局数组而不是DOM元素
     if (key === "API_KEYS") {
       formData[key] = allApiKeys.filter(
-        (value) => value && value.trim() !== "" && value !== MASKED_VALUE
+        (item) => item && item.key && item.key.trim() !== "" && item.key !== MASKED_VALUE
       );
       return;
     }
@@ -2770,3 +2819,166 @@ function updateProxyStatusInList(results) {
 }
 
 // -- End Proxy Check Functions --
+
+/**
+ * Copies text to clipboard with fallback.
+ * @param {string} text - The text to copy.
+ */
+function copyToClipboard(text) {
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showNotification("已复制到剪贴板", "success");
+    }).catch(err => {
+      console.error("Copy failed", err);
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+/**
+ * Fallback copy method using textarea.
+ * @param {string} text - The text to copy.
+ */
+function fallbackCopy(text) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.select();
+  try {
+    document.execCommand("copy");
+    showNotification("已复制到剪贴板", "success");
+  } catch (err) {
+    console.error("Fallback copy failed", err);
+    showNotification("复制失败", "error");
+  }
+  document.body.removeChild(textArea);
+}
+
+/**
+ * Renders a single API key item (card view).
+ * @param {Object} keyData - The API key data object.
+ */
+function renderApiKeyItem(keyData) {
+  const container = document.getElementById("API_KEYS_container");
+  if (!container) return;
+
+  const item = keyData || { key: "", email: "", password: "", recovery_email: "" };
+  // Ensure it's an object if passed as string (legacy safety)
+  const data = typeof item === "string" ? { key: item, email: "", password: "", recovery_email: "" } : item;
+
+  const card = document.createElement("div");
+  card.className = "api-key-card";
+
+  // Main Row: Key + Actions
+  const mainRow = document.createElement("div");
+  mainRow.className = "api-key-main";
+
+  const keyInput = document.createElement("input");
+  keyInput.type = "text";
+  keyInput.className = "detail-input form-input-themed flex-grow px-3 py-2 border rounded-md sensitive-input";
+  keyInput.value = data.key;
+  keyInput.placeholder = "API Key";
+  // Bind data
+  keyInput.addEventListener("input", (e) => {
+    data.key = e.target.value;
+  });
+  // Add sensitive class for potential global handling
+  keyInput.classList.add("sensitive-input"); 
+
+  const copyKeyBtn = document.createElement("button");
+  copyKeyBtn.type = "button";
+  copyKeyBtn.className = "copy-btn";
+  copyKeyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+  copyKeyBtn.title = "复制 API Key";
+  copyKeyBtn.onclick = () => {
+      // If masked (checked via global mask logic if applied), copy real value
+      const val = keyInput.getAttribute("data-real-value") || keyInput.value;
+      if (val === "••••••••") { 
+         copyToClipboard(data.key);
+      } else {
+         copyToClipboard(val);
+      }
+  };
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "remove-btn text-gray-400 hover:text-red-500 focus:outline-none ml-2";
+  removeBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+  removeBtn.onclick = () => {
+      // Remove from allApiKeys
+      const idx = allApiKeys.indexOf(data);
+      if (idx > -1) {
+          allApiKeys.splice(idx, 1);
+          // Also update filteredApiKeys
+          const searchTerm = apiKeySearchInput ? apiKeySearchInput.value.toLowerCase() : "";
+          if (searchTerm) {
+              filteredApiKeys = allApiKeys.filter(k => k.key.toLowerCase().includes(searchTerm));
+          } else {
+              filteredApiKeys = [...allApiKeys];
+          }
+          // Re-render
+          renderApiKeyPage();
+          updateApiKeyPagination();
+      }
+  };
+
+  mainRow.appendChild(keyInput);
+  mainRow.appendChild(copyKeyBtn);
+  mainRow.appendChild(removeBtn);
+  card.appendChild(mainRow);
+
+  // Details Row
+  const detailsRow = document.createElement("div");
+  detailsRow.className = "api-key-details";
+
+  const fields = [
+      { key: "email", label: "账号邮箱", icon: "fa-envelope" },
+      { key: "password", label: "账号密码", icon: "fa-lock" },
+      { key: "recovery_email", label: "辅助邮箱", icon: "fa-shield-alt" }
+  ];
+
+  fields.forEach(field => {
+      const group = document.createElement("div");
+      group.className = "detail-group";
+
+      const label = document.createElement("label");
+      label.className = "detail-label";
+      label.textContent = field.label;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "detail-input-wrapper";
+
+      const input = document.createElement("input");
+      input.type = "text"; 
+      input.className = "detail-input";
+      input.value = data[field.key] || "";
+      input.placeholder = field.label;
+      input.addEventListener("input", (e) => {
+          data[field.key] = e.target.value;
+      });
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copy-btn";
+      copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+      copyBtn.onclick = () => copyToClipboard(data[field.key]);
+
+      wrapper.appendChild(input);
+      wrapper.appendChild(copyBtn);
+      group.appendChild(label);
+      group.appendChild(wrapper);
+      detailsRow.appendChild(group);
+  });
+
+  card.appendChild(detailsRow);
+  container.appendChild(card);
+  
+  // Trigger masking for the key input if it has a value
+  if (keyInput.value && typeof initializeSensitiveFields === "function") {
+      const event = new Event("focusout", { bubbles: true, cancelable: true });
+      keyInput.dispatchEvent(event);
+  }
+}

@@ -9,6 +9,11 @@ logger = get_model_logger()
 
 
 class ModelService:
+    def _is_allowed_model(self, model_id: str) -> bool:
+        if settings.FREE_TIER_ONLY and settings.FREE_TIER_MODELS:
+            return model_id in settings.FREE_TIER_MODELS
+        return True
+
     async def get_gemini_models(self, api_key: str) -> Optional[Dict[str, Any]]:
         api_client = GeminiApiClient(base_url=settings.BASE_URL)
         gemini_models = await api_client.get_models(api_key)
@@ -21,10 +26,13 @@ class ModelService:
             filtered_models_list = []
             for model in gemini_models.get("models", []):
                 model_id = model["name"].split("/")[-1]
-                if model_id not in settings.FILTERED_MODELS:
-                    filtered_models_list.append(model)
-                else:
+                if model_id in settings.FILTERED_MODELS:
                     logger.debug(f"Filtered out model: {model_id}")
+                    continue
+                if not self._is_allowed_model(model_id):
+                    logger.debug(f"Filtered out non-free-tier model: {model_id}")
+                    continue
+                filtered_models_list.append(model)
 
             gemini_models["models"] = filtered_models_list
             return gemini_models
@@ -47,6 +55,8 @@ class ModelService:
 
         for model in gemini_models.get("models", []):
             model_id = model["name"].split("/")[-1]
+            if not self._is_allowed_model(model_id):
+                continue
             openai_model = {
                 "id": model_id,
                 "object": "model",
@@ -72,7 +82,20 @@ class ModelService:
                 openai_format["data"].append(non_thinking_model)
 
         if settings.CREATE_IMAGE_MODEL:
-            image_model = openai_model.copy()
+            if not self._is_allowed_model(settings.CREATE_IMAGE_MODEL):
+                return openai_format
+            if openai_format["data"]:
+                image_model = openai_format["data"][0].copy()
+            else:
+                image_model = {
+                    "id": settings.CREATE_IMAGE_MODEL,
+                    "object": "model",
+                    "created": int(datetime.now(timezone.utc).timestamp()),
+                    "owned_by": "google",
+                    "permission": [],
+                    "root": settings.CREATE_IMAGE_MODEL,
+                    "parent": None,
+                }
             image_model["id"] = f"{settings.CREATE_IMAGE_MODEL}-chat"
             openai_format["data"].append(image_model)
         return openai_format
@@ -84,9 +107,23 @@ class ModelService:
         model = model.strip()
         if model.endswith("-search"):
             model = model[:-7]
-            return model in settings.SEARCH_MODELS
-        if model.endswith("-image"):
+            if model not in settings.SEARCH_MODELS:
+                return False
+        elif model.endswith("-image"):
             model = model[:-6]
-            return model in settings.IMAGE_MODELS
+            if model not in settings.IMAGE_MODELS:
+                return False
+        elif model.endswith("-non-thinking"):
+            model = model[:-13]
+            if model not in settings.THINKING_MODELS:
+                return False
+        elif model.endswith("-chat") and settings.CREATE_IMAGE_MODEL:
+            if not model.startswith(settings.CREATE_IMAGE_MODEL):
+                return False
+            model = settings.CREATE_IMAGE_MODEL
 
-        return model not in settings.FILTERED_MODELS
+        if model in settings.FILTERED_MODELS:
+            return False
+        if not self._is_allowed_model(model):
+            return False
+        return True
